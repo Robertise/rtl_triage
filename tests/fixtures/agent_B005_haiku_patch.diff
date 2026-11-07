@@ -1,0 +1,15 @@
+--- a/fsm_controller.v
++++ b/fsm_controller.v
+@@ -42,10 +42,10 @@
+         end else begin
+             case (current_state)
+                 S_MAIN_GREEN: begin
+-                    if (car_present) begin
++                    if (car_present && (timer_cnt == TICKS_GREEN - 1'b1)) begin
+                         current_state <= S_MAIN_YELLOW;
+                         timer_cnt     <= 4'd0;
+-                    end else if (timer_cnt < TICKS_GREEN - 1'b1) begin
++                    end else if (car_present) begin
+                         timer_cnt <= timer_cnt + 1'b1;
+                     end
+                 end

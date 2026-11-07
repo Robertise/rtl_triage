@@ -1,0 +1,4 @@
+run_id,config,bug_id,repeat,reason,pred_line,label_range,trace_path,human_verdict,human_reason
+dryrun_haiku_1_agent_B005_r1,agent,B005,1,vis_pass_heldout_fail,45,"[45, 49]",results/dryrun_haiku_1/agent/B005/1/trace.jsonl,,
+dryrun_haiku_1_agent_B015_r1,agent,B015,1,vis_pass_heldout_fail,25,"[25, 25]",results/dryrun_haiku_1/agent/B015/1/trace.jsonl,,
+dryrun_haiku_1_baseline_B015_r1,baseline,B015,1,pass_but_differs,26,"[25, 25]",results/dryrun_haiku_1/baseline/B015/1/trace.jsonl,,

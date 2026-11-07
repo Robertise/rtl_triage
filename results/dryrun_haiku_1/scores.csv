@@ -1,0 +1,7 @@
+run_id,config,bug_id,repeat,module,status,stop_reason,is_valid_run,is_infra_error,is_correct_loc,is_correct_cls,pass_vis,pass_heldout,pass_first,patch_apply_failed,llm_turns,sim_calls,input_tokens,output_tokens,cost_usd,pred_file,pred_line,pred_bug_type,first_patch_sim_vis,first_patch_sim_held,final_patch_sim_vis,final_patch_sim_held,notes
+dryrun_haiku_1_agent_B005_r1,agent,B005,1,fsm_controller,COMPLETED,completed,True,False,1,1,1,0,0,0,8,3,109513,3245,0.125738,fsm_controller.v,45,fsm_invalid_transition,FAIL,FAIL,PASS,FAIL,Evaluated normally.
+dryrun_haiku_1_agent_B012_r1,agent,B012,1,alu,COMPLETED,completed,True,False,1,1,1,1,1,0,6,2,53930,1644,0.06215,alu.v,19,bit_width_mismatch,PASS,PASS,PASS,PASS,Evaluated normally.
+dryrun_haiku_1_agent_B015_r1,agent,B015,1,counter,COMPLETED,completed,True,False,1,1,1,0,0,0,9,3,93714,2356,0.105494,counter.v,25,missing_branch,FAIL,FAIL,PASS,FAIL,Evaluated normally.
+dryrun_haiku_1_baseline_B005_r1,baseline,B005,1,fsm_controller,COMPLETED,completed,True,False,1,0,0,0,0,0,1,0,4190,356,0.00597,fsm_controller.v,48,off_by_one,FAIL,FAIL,FAIL,FAIL,Evaluated normally.
+dryrun_haiku_1_baseline_B012_r1,baseline,B012,1,alu,COMPLETED,completed,True,False,1,1,1,1,1,0,1,0,3272,302,0.004782,alu.v,19,bit_width_mismatch,PASS,PASS,PASS,PASS,Evaluated normally.
+dryrun_haiku_1_baseline_B015_r1,baseline,B015,1,counter,COMPLETED,completed,True,False,1,1,1,1,1,0,1,0,2748,374,0.004618,counter.v,26,missing_branch,PASS,PASS,PASS,PASS,Evaluated normally.

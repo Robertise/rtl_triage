@@ -1,0 +1,30 @@
+# Environment variables and secrets (NEVER COMMIT)
+.env
+*.env
+!.env.example
+
+# Simulation and Build artifacts
+sim_build/
+*.vcd
+*.vvp
+*.log
+results.xml
+test_results.xml
+
+# Evaluation results: raw traces, manifests and scores are committed as evidence.
+results/**/ws/
+results/**/*.md
+docs/
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.venv/
+env/
+
+# Tool binaries / local caches
+tools/
+.cache/

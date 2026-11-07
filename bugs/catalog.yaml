@@ -1,0 +1,580 @@
+# RTL Failure Triage Agent - Bug Catalog (Phase 3 - Step 1 / H3.1)
+# Priority order: fifo_flag > fsm_invalid_transition > reset_polarity > blocking_nonblocking > bit_width_mismatch > missing_branch > off_by_one
+
+bugs:
+  - bug_id: B001
+    split: test
+    module: fifo
+    file: rtl/fifo.v
+    bug_type: fifo_flag
+    label_reason: "Lỗi nằm trực tiếp ở biểu thức tính cờ trạng thái fifo_full của FIFO; theo quy tắc ưu tiên nhãn, fifo_flag đứng thứ 1 (cao nhất) nên được chọn thay vì off_by_one."
+    line_start: 30
+    line_end: 30
+    original: |2
+          assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});
+          assign fifo_full  = (item_count == FIFO_DEPTH);
+    mutated: |2
+          assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});
+          assign fifo_full  = (item_count == (FIFO_DEPTH - 1));
+    correct_fix: |2
+          assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});
+          assign fifo_full  = (item_count == FIFO_DEPTH);
+    alternative_fixes:
+      - "assign fifo_full = (item_count >= FIFO_DEPTH);"
+      - "assign fifo_full = item_count[ADDR_WIDTH];"
+    expected_symptom: "Cờ fifo_full bật sớm lên 1 khi item_count mới đạt 7 (FIFO_DEPTH - 1), làm từ chối thao tác push phần tử thứ 8 và khiến item_count dừng ở 7 thay vì 8."
+    activation: late
+    activation_reason: "Cần thực hiện liên tiếp 7 chu kỳ push dữ liệu để thanh ghi item_count tăng lên chạm ngưỡng FIFO_DEPTH - 1 (7) thì biểu thức cờ fifo_full mới tính sai."
+    propagation: none
+    propagation_reason: "Tín hiệu đầu ra fifo_full là mạch tổ hợp trực tiếp từ item_count, nên đổi sang giá trị sai ngay trong cùng chu kỳ item_count đạt 7."
+    difficulty_note: "Không quá dễ vì triệu chứng đầu tiên trong bài kiểm thử báo ở item_count (7 thay vì 8) tại chu kỳ thứ 8, đòi hỏi truy ngược từ điều kiện chặn do_push về công thức cờ fifo_full."
+
+  - bug_id: B002
+    split: test
+    module: fifo
+    file: rtl/fifo.v
+    bug_type: fifo_flag
+    label_reason: "Lỗi làm sai trực tiếp biểu thức tính cờ fifo_empty trong FIFO; nhãn fifo_flag có độ ưu tiên cao nhất (1/7)."
+    line_start: 29
+    line_end: 29
+    original: |2
+          // Status flags
+          assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});
+    mutated: |2
+          // Status flags
+          assign fifo_empty = (wr_ptr == rd_ptr);
+    correct_fix: |2
+          // Status flags
+          assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});
+    alternative_fixes:
+      - "assign fifo_empty = (item_count == 0);"
+      - "assign fifo_empty = (wr_ptr == rd_ptr) && !fifo_full;"
+    expected_symptom: "Khi FIFO được ghi đầy đủ 8 phần tử, wr_ptr quay vòng về bằng rd_ptr khiến cờ fifo_empty bật sai lên 1 dù hàng đợi đang đầy (item_count == 8)."
+    activation: late
+    activation_reason: "Cần ghi đủ 8 phần tử để con trỏ wr_ptr quay vòng (wrap-around) về trùng với rd_ptr trong khi hàng đợi đang đầy (item_count == 8)."
+    propagation: none
+    propagation_reason: "Cờ đầu ra fifo_empty được nối tổ hợp trực tiếp với bộ so sánh wr_ptr == rd_ptr, nên xuất mức 1 sai ngay tại chu kỳ wr_ptr quay vòng bằng rd_ptr."
+    difficulty_note: "Lỗi kinh điển trong thiết kế FIFO đồng bộ do nhập nhằng giữa trạng thái full và empty khi chỉ so sánh hai con trỏ có cùng độ rộng ADDR_WIDTH bit."
+
+  - bug_id: B003
+    split: test
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: fsm_invalid_transition
+    label_reason: "FSM gán sai trạng thái đích kế tiếp khi hết thời gian đèn vàng đường chính; không liên quan đến fifo_flag nên nhận nhãn ưu tiên số 2 là fsm_invalid_transition."
+    line_start: 55
+    line_end: 55
+    original: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    mutated: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    correct_fix: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    alternative_fixes: []
+    expected_symptom: "Sau khi kết thúc 2 chu kỳ ở S_MAIN_YELLOW, state_debug chuyển thẳng sang S_SIDE_YELLOW (3) thay vì S_SIDE_GREEN (2), bỏ qua hoàn toàn pha đèn xanh của đường phụ."
+    activation: late
+    activation_reason: "Mạch phải đi qua đủ 6 chu kỳ S_MAIN_GREEN khi có xe và 2 chu kỳ đếm S_MAIN_YELLOW mới kích hoạt nhánh chuyển trạng thái bị lỗi."
+    propagation: none
+    propagation_reason: "Các đầu ra state_debug, main_signal, side_signal là hàm tổ hợp trực tiếp của current_state (Moore FSM), nên phản ánh ngay trạng thái sai S_SIDE_YELLOW tại cạnh clock chuyển pha."
+    difficulty_note: "Mức trung bình-dễ: trạng thái đích sai thể hiện trực tiếp qua state_debug và side_signal ngay tại thời điểm chuyển khỏi S_MAIN_YELLOW."
+
+  - bug_id: B004
+    split: test
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: fsm_invalid_transition
+    label_reason: "Biểu thức điều kiện chuyển trạng thái từ S_SIDE_GREEN sang S_SIDE_YELLOW dùng sai toán tử logic, làm FSM không chuyển trạng thái đúng đặc tả; thuộc nhãn ưu tiên số 2 fsm_invalid_transition."
+    line_start: 63
+    line_end: 63
+    original: |2
+                      S_SIDE_GREEN: begin
+                          if (!car_present || (timer_cnt == TICKS_GREEN - 1'b1)) begin
+                              current_state <= S_SIDE_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    mutated: |2
+                      S_SIDE_GREEN: begin
+                          if (!car_present && (timer_cnt == TICKS_GREEN - 1'b1)) begin
+                              current_state <= S_SIDE_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    correct_fix: |2
+                      S_SIDE_GREEN: begin
+                          if (!car_present || (timer_cnt == TICKS_GREEN - 1'b1)) begin
+                              current_state <= S_SIDE_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    alternative_fixes: []
+    expected_symptom: "Khi car_present giữ bằng 1, FSM bị kẹt ở S_SIDE_GREEN (2) sau khi hết 6 chu kỳ mà không chuyển sang S_SIDE_YELLOW (3); đồng thời nếu car_present về 0 sớm trước chu kỳ thứ 6 thì FSM cũng không ngắt sớm."
+    activation: late
+    activation_reason: "FSM phải chuyển qua S_MAIN_GREEN (6 chu kỳ) và S_MAIN_YELLOW (2 chu kỳ) để tiến vào trạng thái S_SIDE_GREEN rồi gặp điều kiện hết giờ hoặc mất tín hiệu car_present."
+    propagation: none
+    propagation_reason: "Tại cạnh clock mà current_state bị giữ sai ở S_SIDE_GREEN thay vì chuyển sang S_SIDE_YELLOW, các ngõ ra tổ hợp state_debug và side_signal sai lệch ngay trong chu kỳ đó."
+    difficulty_note: "Không quá dễ vì lỗi nằm ở toán tử kết hợp điều kiện dừng sớm và điều kiện hết giờ của pha đèn phụ sau chuỗi 14 chu kỳ mô phỏng."
+
+  - bug_id: B005
+    split: dev
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: fsm_invalid_transition
+    label_reason: "Thứ tự ưu tiên điều kiện trong S_MAIN_GREEN bị đảo làm FSM chuyển trạng thái ngay lập tức khi có xe mà bỏ qua thời gian giữ tối thiểu TICKS_GREEN; thuộc fsm_invalid_transition (ưu tiên số 2)."
+    line_start: 45
+    line_end: 49
+    original: |2
+                      S_MAIN_GREEN: begin
+                          if (timer_cnt < TICKS_GREEN - 1'b1) begin
+                              timer_cnt <= timer_cnt + 1'b1;
+                          end else if (car_present) begin
+                              current_state <= S_MAIN_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end
+                      end
+    mutated: |2
+                      S_MAIN_GREEN: begin
+                          if (car_present) begin
+                              current_state <= S_MAIN_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end else if (timer_cnt < TICKS_GREEN - 1'b1) begin
+                              timer_cnt <= timer_cnt + 1'b1;
+                          end
+                      end
+    correct_fix: |2
+                      S_MAIN_GREEN: begin
+                          if (timer_cnt < TICKS_GREEN - 1'b1) begin
+                              timer_cnt <= timer_cnt + 1'b1;
+                          end else if (car_present) begin
+                              current_state <= S_MAIN_YELLOW;
+                              timer_cnt     <= 4'd0;
+                          end
+                      end
+    alternative_fixes:
+      - "if (car_present && (timer_cnt == TICKS_GREEN - 1'b1)) ở nhánh đầu tiên."
+    expected_symptom: "Khi car_present == 1, FSM lập tức chuyển từ S_MAIN_GREEN (0) sang S_MAIN_YELLOW (1) ngay ở cạnh clock đầu tiên thay vì đợi đủ 6 chu kỳ TICKS_GREEN."
+    activation: immediate
+    activation_reason: "Ngay ở trạng thái khởi tạo sau reset (S_MAIN_GREEN, timer_cnt = 0), chỉ cần car_present = 1 ở cạnh clock đầu tiên là nhánh chuyển trạng thái sớm bị kích hoạt."
+    propagation: none
+    propagation_reason: "Ngõ ra state_debug và main_signal được giải mã tổ hợp từ current_state nên đổi sai sang pha đèn vàng ngay tại cạnh clock đầu tiên."
+    difficulty_note: "Cơ chế lỗi đảo thứ tự ưu tiên if/else-if khác biệt hoàn toàn với các lỗi trong tập test, phù hợp làm mẫu dev."
+
+  - bug_id: B006
+    split: test
+    module: counter
+    file: rtl/counter.v
+    bug_type: reset_polarity
+    label_reason: "Điều kiện kiểm tra mức tín hiệu reset bị đảo từ active-low (!reset_n) sang active-high (reset_n); không thuộc fifo_flag hay fsm_invalid_transition nên nhận nhãn ưu tiên số 3 là reset_polarity."
+    line_start: 23
+    line_end: 23
+    original: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (!reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+    mutated: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+    correct_fix: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (!reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+    alternative_fixes:
+      - "if (reset_n == 1'b0) begin"
+    expected_symptom: "Sau khi nhả reset (reset_n = 1) và bật cnt_en = 1, val_out vẫn bị ghim cứng ở 0 tại mọi cạnh lên của xung nhịp clk."
+    activation: immediate
+    activation_reason: "Ngay ở cạnh clock đầu tiên sau khi nhả reset (reset_n = 1, cnt_en = 1), nhánh reset sai cực tính bị kích hoạt thay vì nhánh đếm."
+    propagation: none
+    propagation_reason: "Thanh ghi val_out chính là cổng đầu ra trực tiếp của module nên giá trị bị ghim sai ở 0 xuất hiện ngay tại cạnh clock đó."
+    difficulty_note: "Mức dễ: dấu hiệu val_out luôn bằng 0 khi reset_n = 1 chỉ thẳng tới điều kiện nhánh reset trong khối always."
+
+  - bug_id: B007
+    split: test
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: reset_polarity
+    label_reason: "Nhánh kiểm tra tín hiệu reset_n trong khối always dùng sai cực tính (reset_n thay vì !reset_n); đây là lỗi cực tính chân reset nên thuộc reset_polarity (ưu tiên số 3)."
+    line_start: 39
+    line_end: 39
+    original: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (!reset_n) begin
+                  current_state <= S_MAIN_GREEN;
+                  timer_cnt     <= 4'd0;
+    mutated: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (reset_n) begin
+                  current_state <= S_MAIN_GREEN;
+                  timer_cnt     <= 4'd0;
+    correct_fix: |2
+          always @(posedge clk or negedge reset_n) begin
+              if (!reset_n) begin
+                  current_state <= S_MAIN_GREEN;
+                  timer_cnt     <= 4'd0;
+    alternative_fixes:
+      - "if (reset_n == 1'b0) begin"
+    expected_symptom: "Khi reset_n = 1, FSM bị ép giữ ở S_MAIN_GREEN (0) và timer_cnt = 0 ở mọi cạnh clock, dẫn tới sau 6 chu kỳ có car_present = 1 vẫn không chuyển sang S_MAIN_YELLOW (1)."
+    activation: immediate
+    activation_reason: "Ngay khi reset_n = 1 ở cạnh clock đầu tiên sau khi nhả reset, nhánh if (reset_n) đã kích hoạt sai và ép thanh ghi nội timer_cnt về 0 thay vì tăng lên 1."
+    propagation: delayed
+    propagation_reason: "Thanh ghi nội timer_cnt bị giữ sai ở 0 từ chu kỳ đầu tiên, nhưng vì trạng thái S_MAIN_GREEN vốn kéo dài 6 chu kỳ nên các ngõ ra quan sát được (state_debug, main_signal) chỉ báo sai sau 6 chu kỳ clock."
+    difficulty_note: "Không quá dễ vì triệu chứng ở ngõ ra giống hệt lỗi bộ đếm timer_cnt hoặc điều kiện chuyển trạng thái S_MAIN_GREEN, trong khi test_fsm_reset vẫn PASS."
+
+  - bug_id: B008
+    split: test
+    module: fifo
+    file: rtl/fifo.v
+    bug_type: blocking_nonblocking
+    label_reason: "Dùng phép gán blocking (=) thay cho non-blocking (<=) khi ghi vào mảng mem trong khối always tuần tự; không thuộc 3 nhãn ưu tiên cao hơn nên nhận nhãn ưu tiên số 4 là blocking_nonblocking."
+    line_start: 46
+    line_end: 46
+    original: |2
+                  if (do_push) begin
+                      mem[wr_ptr] <= data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    mutated: |2
+                  if (do_push) begin
+                      mem[wr_ptr] = data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    correct_fix: |2
+                  if (do_push) begin
+                      mem[wr_ptr] <= data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    alternative_fixes: []
+    expected_symptom: "Khi FIFO đang đầy (wr_ptr == rd_ptr) và thực hiện đọc/ghi đồng thời (push_req = 1, pop_req = 1), data_out đọc ra giá trị data_in vừa mới ghi vào (0xEE) thay vì phần tử cũ nhất đang nằm tại rd_ptr (0xB2)."
+    activation: late
+    activation_reason: "Cần nạp đầy 8 phần tử vào FIFO để wr_ptr == rd_ptr rồi thực hiện đồng thời push_req = 1 và pop_req = 1 mới kích hoạt xung đột đọc-sau-ghi trong cùng chu kỳ."
+    propagation: none
+    propagation_reason: "Phép gán blocking ghi đè mem[wr_ptr] làm câu lệnh data_out <= mem[rd_ptr] trong cùng khối always chốt giá trị mới ngay ra cổng data_out tại cạnh clock đó."
+    difficulty_note: "Mức khó: lỗi race condition tinh vi giữa cổng ghi và cổng đọc trong cùng một khối always chỉ kích hoạt tại điều kiện biên wr_ptr == rd_ptr."
+
+  - bug_id: B009
+    split: test
+    module: alu
+    file: rtl/alu.v
+    bug_type: bit_width_mismatch
+    label_reason: "Đặt phép cộng src_a + src_b vào trong toán tử ghép bit {1'b0, src_a + src_b} làm biểu thức cộng bị tính theo độ rộng tự xác định (self-determined 8-bit) thay vì 9-bit, làm mất bit nhớ thứ 9; thuộc nhãn ưu tiên số 5 bit_width_mismatch."
+    line_start: 25
+    line_end: 25
+    original: |2
+                  3'b000: begin // ADD
+                      {flag_carry, alu_res} = src_a + src_b;
+                  end
+    mutated: |2
+                  3'b000: begin // ADD
+                      {flag_carry, alu_res} = {1'b0, src_a + src_b};
+                  end
+    correct_fix: |2
+                  3'b000: begin // ADD
+                      {flag_carry, alu_res} = src_a + src_b;
+                  end
+    alternative_fixes:
+      - "{flag_carry, alu_res} = {1'b0, src_a} + {1'b0, src_b};"
+    expected_symptom: "Phép cộng không tràn (0x15 + 0x23 = 0x38) vẫn đúng, nhưng khi cộng tràn 8-bit (0xFF + 0x01) thì flag_carry luôn bằng 0 thay vì 1."
+    activation: immediate
+    activation_reason: "Mạch tổ hợp ALU kích hoạt lỗi ngay trong phép thử cộng hai toán hạng có tổng vượt quá 8 bit (src_a + src_b > 8'hFF)."
+    propagation: none
+    propagation_reason: "Ngõ ra flag_carry là mạch tổ hợp không có thanh ghi trễ nên xuất giá trị 0 sai ngay trong cùng bước thời gian mô phỏng."
+    difficulty_note: "Không quá dễ vì quy tắc độ rộng biểu thức context-determined so với self-determined bên trong concatenation {} của chuẩn Verilog-2005 dễ gây nhầm lẫn."
+
+  - bug_id: B010
+    split: test
+    module: fifo
+    file: rtl/fifo.v
+    bug_type: bit_width_mismatch
+    label_reason: "Chỉ số địa chỉ ghi vào mảng mem bị cắt ngắn còn ADDR_WIDTH-1 bit (wr_ptr[ADDR_WIDTH-2:0]) thay vì đủ ADDR_WIDTH bit; không thuộc 4 nhãn ưu tiên trên nên nhận nhãn bit_width_mismatch."
+    line_start: 46
+    line_end: 46
+    original: |2
+                  if (do_push) begin
+                      mem[wr_ptr] <= data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    mutated: |2
+                  if (do_push) begin
+                      mem[wr_ptr[ADDR_WIDTH-2:0]] <= data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    correct_fix: |2
+                  if (do_push) begin
+                      mem[wr_ptr] <= data_in;
+                      wr_ptr      <= wr_ptr + 1'b1;
+                  end
+    alternative_fixes:
+      - "mem[wr_ptr[ADDR_WIDTH-1:0]] <= data_in;"
+    expected_symptom: "Khi nạp quá 4 phần tử vào FIFO, các phần tử thứ 5..8 bị ghi đè vòng lại vào mem[0..3], làm khi pop phần tử đầu tiên ra nhận giá trị 0x14 (20) thay vì 0x10 (16)."
+    activation: late
+    activation_reason: "Cần ghi tới phần tử thứ 5 (wr_ptr >= 4, tức bit wr_ptr[2] = 1) thì việc cắt bỏ MSB của địa chỉ ghi mới làm dữ liệu ghi đè sai vào mem[0..3]."
+    propagation: delayed
+    propagation_reason: "Dữ liệu trong mảng nhớ nội mem[0..3] bị ghi đè sai tại các chu kỳ push thứ 5..8, nhưng các cổng đầu ra (item_count, fifo_full, fifo_empty, data_out) chưa đổi và chỉ xuất data_out sai ở chu kỳ thực hiện lệnh pop sau đó."
+    difficulty_note: "Không quá dễ vì tại thời điểm ghi không có cờ nào báo sai, lỗi chỉ phát hiện nhiều chu kỳ sau đó khi đọc dữ liệu ra bị biến dạng giống triệu chứng ghi tràn."
+
+  - bug_id: B011
+    split: test
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: missing_branch
+    label_reason: "Trong nhánh S_MAIN_YELLOW khi chuyển sang S_SIDE_GREEN bị thiếu phép gán bắt buộc timer_cnt <= 4'd0; trạng thái đích và điều kiện chuyển của S_MAIN_YELLOW vẫn đúng nên thuộc nhãn missing_branch."
+    line_start: 55
+    line_end: 56
+    original: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    mutated: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                          end else begin
+    correct_fix: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+                          end else begin
+    alternative_fixes: []
+    expected_symptom: "Khi chuyển từ S_MAIN_YELLOW sang S_SIDE_GREEN, timer_cnt không được xóa về 0 mà giữ nguyên giá trị 1, làm pha xanh phụ S_SIDE_GREEN ngắn hơn 1 chu kỳ (chỉ kéo dài 5 chu kỳ thay vì 6 chu kỳ khi car_present vẫn là 1)."
+    activation: late
+    activation_reason: "Mạch phải chạy hết 6 chu kỳ S_MAIN_GREEN và 2 chu kỳ S_MAIN_YELLOW để kích hoạt nhánh chuyển từ S_MAIN_YELLOW sang S_SIDE_GREEN."
+    propagation: delayed
+    propagation_reason: "Khi vừa vào S_SIDE_GREEN, thanh ghi nội timer_cnt đã mang giá trị sai là 1 thay vì 0 trong khi các ngõ ra (state_debug, side_signal) vẫn đúng; phải sau 5 chu kỳ đếm tiếp theo thì state_debug và side_signal mới chuyển sớm sang S_SIDE_YELLOW."
+    difficulty_note: "Không quá dễ vì triệu chứng báo lỗi xảy ra ở cuối pha S_SIDE_GREEN nhưng nguyên nhân gốc lại nằm ở việc thiếu phép gán xóa timer_cnt tại nhánh thoát của trạng thái S_MAIN_YELLOW trước đó."
+
+  - bug_id: B012
+    split: dev
+    module: alu
+    file: rtl/alu.v
+    bug_type: bit_width_mismatch
+    label_reason: "Cờ flag_zero chỉ so sánh 4 bit thấp alu_res[3:0] với 4'b0000 thay vì so sánh toàn bộ DATA_WIDTH (8 bit) của alu_res; thuộc nhãn bit_width_mismatch."
+    line_start: 19
+    line_end: 19
+    original: |2
+          // Combinational zero flag
+          assign flag_zero = (alu_res == {DATA_WIDTH{1'b0}});
+    mutated: |2
+          // Combinational zero flag
+          assign flag_zero = (alu_res[3:0] == 4'b0000);
+    correct_fix: |2
+          // Combinational zero flag
+          assign flag_zero = (alu_res == {DATA_WIDTH{1'b0}});
+    alternative_fixes:
+      - "assign flag_zero = ~(|alu_res);"
+    expected_symptom: "Khi kết quả phép tính khác 0 nhưng có 4 bit thấp bằng 0 (ví dụ 0x50 - 0x20 = 0x30), cờ flag_zero bật sai lên 1."
+    activation: immediate
+    activation_reason: "Mạch tổ hợp kích hoạt lỗi ngay khi kết quả alu_res có 4 bit cao khác 0 nhưng 4 bit thấp bằng 0 (như 0x50 - 0x20 = 0x30)."
+    propagation: none
+    propagation_reason: "Cờ flag_zero là ngõ ra tổ hợp trực tiếp nên bật sai lên 1 ngay trong cùng chu kỳ đánh giá tổ hợp."
+    difficulty_note: "Không quá dễ vì các phép tính có 4 bit thấp khác 0 (như 0x15 + 0x23 = 0x38) hoặc bằng 0 hoàn toàn (0x00) đều cho flag_zero đúng."
+
+  - bug_id: B013
+    split: test
+    module: alu
+    file: rtl/alu.v
+    bug_type: missing_branch
+    label_reason: "Thiếu nhánh default trong cấu trúc case (op_code) của mạch tổ hợp; không thuộc 5 nhãn ưu tiên trên nên nhận nhãn ưu tiên số 6 là missing_branch."
+    line_start: 42
+    line_end: 43
+    original: |2
+                  3'b100: begin // XOR
+                      alu_res    = src_a ^ src_b;
+                      flag_carry = 1'b0;
+                  end
+                  default: begin // Safe fallback
+                      alu_res    = {DATA_WIDTH{1'b0}};
+                      flag_carry = 1'b0;
+                  end
+              endcase
+    mutated: |2
+                  3'b100: begin // XOR
+                      alu_res    = src_a ^ src_b;
+                      flag_carry = 1'b0;
+                  end
+              endcase
+    correct_fix: |2
+                  3'b100: begin // XOR
+                      alu_res    = src_a ^ src_b;
+                      flag_carry = 1'b0;
+                  end
+                  default: begin // Safe fallback
+                      alu_res    = {DATA_WIDTH{1'b0}};
+                      flag_carry = 1'b0;
+                  end
+              endcase
+    alternative_fixes:
+      - "Khởi tạo mặc định alu_res = {DATA_WIDTH{1'b0}}; flag_carry = 1'b0; ở đầu khối always @(*) trước câu lệnh case."
+    expected_symptom: "Khi đưa mã lệnh không hợp lệ (op_code = 3'b101), alu_res không về 0 mà giữ nguyên (latch) giá trị 0x5A (90) của phép XOR trước đó."
+    activation: immediate
+    activation_reason: "Lỗi kích hoạt ngay khi đưa mã lệnh ngoài tập 5 phép toán chuẩn (op_code >= 3'b101) sau một phép tính có kết quả khác 0."
+    propagation: none
+    propagation_reason: "Do thiếu nhánh default trong khối always @(*), latch suy diễn giữ nguyên giá trị cũ trực tiếp trên cổng đầu ra alu_res ngay tại thời điểm đổi op_code."
+    difficulty_note: "Lỗi chuẩn mực về suy diễn latch ngoài ý muốn do thiếu nhánh default trong khối always @(*) tổ hợp."
+
+  - bug_id: B014
+    split: test
+    module: fifo
+    file: rtl/fifo.v
+    bug_type: missing_branch
+    label_reason: "Thiếu nhánh case 2'b01 (chỉ pop) khi cập nhật thanh ghi item_count; biểu thức cờ full/empty ở dòng 29-30 không bị sửa nên không phải fifo_flag, nhận nhãn ưu tiên số 6 là missing_branch."
+    line_start: 58
+    line_end: 59
+    original: |2
+                  case ({do_push, do_pop})
+                      2'b10: item_count <= item_count + 1'b1;
+                      2'b01: item_count <= item_count - 1'b1;
+                      default: item_count <= item_count;
+                  endcase
+    mutated: |2
+                  case ({do_push, do_pop})
+                      2'b10: item_count <= item_count + 1'b1;
+                      default: item_count <= item_count;
+                  endcase
+    correct_fix: |2
+                  case ({do_push, do_pop})
+                      2'b10: item_count <= item_count + 1'b1;
+                      2'b01: item_count <= item_count - 1'b1;
+                      default: item_count <= item_count;
+                  endcase
+    alternative_fixes: []
+    expected_symptom: "Khi thực hiện pop đơn lẻ (pop_req = 1, push_req = 0), dữ liệu data_out vẫn đọc ra đúng nhưng item_count không giảm về 0 mà giữ nguyên ở 1, kéo theo fifo_empty không bật lên 1."
+    activation: immediate
+    activation_reason: "Lỗi kích hoạt ngay ở thao tác đọc đơn lẻ đầu tiên (push_req = 0, pop_req = 1) sau khi đã nạp 1 phần tử vào hàng đợi."
+    propagation: none
+    propagation_reason: "Thanh ghi item_count là cổng đầu ra trực tiếp và cờ fifo_empty là tổ hợp từ item_count, nên cả hai đầu ra báo giá trị sai ngay tại cạnh clock thực hiện lệnh pop."
+    difficulty_note: "Trung bình: cả item_count và fifo_empty cùng báo sai sau khi pop, đòi hỏi phân biệt giữa lỗi công thức cờ và lỗi thiếu nhánh cập nhật bộ đếm."
+
+  - bug_id: B015
+    split: dev
+    module: counter
+    file: rtl/counter.v
+    bug_type: missing_branch
+    label_reason: "Thiếu điều kiện rẽ nhánh else if (cnt_en) (đổi thành else vô điều kiện) khiến bộ đếm mất nhánh giữ trạng thái khi cnt_en = 0; thuộc nhãn ưu tiên số 6 là missing_branch."
+    line_start: 25
+    line_end: 25
+    original: |2
+              if (!reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+              end else if (cnt_en) begin
+                  if (val_out >= limit_val) begin
+    mutated: |2
+              if (!reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+              end else begin
+                  if (val_out >= limit_val) begin
+    correct_fix: |2
+              if (!reset_n) begin
+                  val_out <= {WIDTH_BITS{1'b0}};
+              end else if (cnt_en) begin
+                  if (val_out >= limit_val) begin
+    alternative_fixes: []
+    expected_symptom: "Khi tín hiệu cho phép đếm tắt (cnt_en = 0) và reset_n = 1, bộ đếm không giữ nguyên giá trị hiện tại mà vẫn tiếp tục đếm tăng ở mỗi cạnh lên của clock."
+    activation: immediate
+    activation_reason: "Lỗi kích hoạt ngay tại cạnh clock đầu tiên khi tín hiệu cho phép đếm bị ngắt (cnt_en = 0) và reset_n = 1."
+    propagation: none
+    propagation_reason: "Thanh ghi đầu ra val_out tăng giá trị sai ngay tại cạnh lên của xung nhịp clock mà không có độ trễ lan truyền qua trạng thái trung gian."
+    difficulty_note: "Lỗi rõ ràng về thiếu điều kiện cổng cho phép đếm (enable gating), phù hợp cho tập dev."
+
+  - bug_id: B016
+    split: test
+    module: counter
+    file: rtl/counter.v
+    bug_type: off_by_one
+    label_reason: "So sánh ngưỡng giới hạn dùng toán tử > thay vì >= làm chu kỳ đếm bị lệch thêm 1 đơn vị trước khi wrap về 0; không thỏa mãn 6 nhãn ưu tiên cao hơn nên nhận nhãn off_by_one."
+    line_start: 26
+    line_end: 26
+    original: |2
+                  if (val_out >= limit_val) begin
+                      val_out <= {WIDTH_BITS{1'b0}};
+                  end else begin
+    mutated: |2
+                  if (val_out > limit_val) begin
+                      val_out <= {WIDTH_BITS{1'b0}};
+                  end else begin
+    correct_fix: |2
+                  if (val_out >= limit_val) begin
+                      val_out <= {WIDTH_BITS{1'b0}};
+                  end else begin
+    alternative_fixes:
+      - "if (val_out == limit_val || val_out > limit_val) begin"
+    expected_symptom: "Khi đếm đến limit_val (4), cờ term_reached đã bật lên 1 nhưng ở cạnh clock kế tiếp val_out tăng lên 5 thay vì quay về 0 (chỉ quay về 0 ở chu kỳ sau đó)."
+    activation: late
+    activation_reason: "Bộ đếm phải đếm tăng tuần tự qua nhiều chu kỳ cho đến khi val_out chạm đúng giá trị ngưỡng limit_val mới kích hoạt điều kiện biên bị lệch."
+    propagation: none
+    propagation_reason: "Tại cạnh clock kế tiếp khi val_out == limit_val, thanh ghi đầu ra val_out cập nhật trực tiếp lên limit_val + 1 thay vì 0 nên quan sát thấy ngay ở ngõ ra."
+    difficulty_note: "Trung bình: lỗi kinh điển lệch 1 chu kỳ ở điều kiện biên làm bộ đếm có chu kỳ limit_val + 2 thay vì limit_val + 1."
+
+  - bug_id: B017
+    split: test
+    module: fsm_controller
+    file: rtl/fsm_controller.v
+    bug_type: off_by_one
+    label_reason: "Đồ thị chuyển trạng thái và trạng thái đích (S_MAIN_YELLOW -> S_SIDE_GREEN) hoàn toàn đúng đặc tả (không phải fsm_invalid_transition); lỗi chỉ lệch +1 ở giá trị biên so sánh bộ đếm thời gian (TICKS_YELLOW thay vì TICKS_YELLOW - 1'b1), nên nhận nhãn off_by_one."
+    line_start: 54
+    line_end: 54
+    original: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+    mutated: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+    correct_fix: |2
+                      S_MAIN_YELLOW: begin
+                          if (timer_cnt == TICKS_YELLOW - 1'b1) begin
+                              current_state <= S_SIDE_GREEN;
+                              timer_cnt     <= 4'd0;
+    alternative_fixes:
+      - "if (timer_cnt >= TICKS_YELLOW - 1'b1) begin"
+    expected_symptom: "Trạng thái S_MAIN_YELLOW kéo dài 3 chu kỳ (timer_cnt = 0, 1, 2) thay vì 2 chu kỳ, làm tại cạnh clock thứ 8 state_debug vẫn bằng 1 (S_MAIN_YELLOW) thay vì chuyển sang 2 (S_SIDE_GREEN)."
+    activation: late
+    activation_reason: "FSM phải đi qua đủ 6 chu kỳ S_MAIN_GREEN và đếm đến chu kỳ thứ 2 của S_MAIN_YELLOW (timer_cnt == TICKS_YELLOW - 1) mới chạm điều kiện biên bị lệch."
+    propagation: none
+    propagation_reason: "Tại cạnh clock cuối chu kỳ thứ 2 của S_MAIN_YELLOW, việc không chuyển sang S_SIDE_GREEN làm các ngõ ra tổ hợp state_debug, main_signal, side_signal giữ giá trị sai ngay ở chu kỳ đó."
+    difficulty_note: "Không quá dễ vì tại thời điểm 315ns thông báo lỗi chỉ báo state_debug đang là 1 thay vì 2, đòi hỏi phân biệt giữa lỗi kẹt trạng thái và lỗi đếm dư 1 nhịp timer."
+
+  - bug_id: B018
+    split: test
+    module: alu
+    file: rtl/alu.v
+    bug_type: off_by_one
+    label_reason: "So sánh biên tính cờ mượn flag_carry của phép trừ dùng <= thay vì < làm lệch 1 giá trị biên tại điểm A == B; không thuộc 6 nhãn ưu tiên trên nên nhận nhãn off_by_one."
+    line_start: 29
+    line_end: 29
+    original: |2
+                  3'b001: begin // SUB (flag_carry is borrow)
+                      alu_res    = src_a - src_b;
+                      flag_carry = (src_a < src_b);
+                  end
+    mutated: |2
+                  3'b001: begin // SUB (flag_carry is borrow)
+                      alu_res    = src_a - src_b;
+                      flag_carry = (src_a <= src_b);
+                  end
+    correct_fix: |2
+                  3'b001: begin // SUB (flag_carry is borrow)
+                      alu_res    = src_a - src_b;
+                      flag_carry = (src_a < src_b);
+                  end
+    alternative_fixes: []
+    expected_symptom: "Phép trừ hai số khác nhau (A > B và A < B) đều đúng, nhưng khi trừ hai số bằng nhau (0x4A - 0x4A) thì flag_carry bật sai lên 1 thay vì 0."
+    activation: immediate
+    activation_reason: "Mạch tổ hợp kích hoạt lỗi ngay khi thực hiện phép trừ (op_code = 3'b001) với hai toán hạng đầu vào bằng nhau (src_a == src_b)."
+    propagation: none
+    propagation_reason: "Ngõ ra flag_carry được gán trực tiếp trong khối tổ hợp always @(*) nên xuất mức 1 sai ngay tức thì."
+    difficulty_note: "Trung bình: chỉ sai duy nhất tại trường hợp biên src_a == src_b, còn mọi trường hợp src_a > src_b hoặc src_a < src_b đều cho kết quả đúng."
