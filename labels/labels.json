@@ -7,7 +7,7 @@
     "line_start": 30,
     "line_end": 30,
     "bug_type": "fifo_flag",
-    "description": "Cờ fifo_full bật sớm lên 1 khi item_count mới đạt 7 (FIFO_DEPTH - 1), làm từ chối thao tác push phần tử thứ 8 và khiến item_count dừng ở 7 thay vì 8.",
+    "description": "Flag fifo_full asserts high early when item_count only reaches 7 (FIFO_DEPTH - 1), rejecting the 8th push operation and leaving item_count stuck at 7 instead of 8.",
     "correct_fix": "    assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});\n    assign fifo_full  = (item_count == FIFO_DEPTH);\n",
     "alternative_fixes": [
       "assign fifo_full = (item_count >= FIFO_DEPTH);",
@@ -24,7 +24,7 @@
     "line_start": 29,
     "line_end": 29,
     "bug_type": "fifo_flag",
-    "description": "Khi FIFO được ghi đầy đủ 8 phần tử, wr_ptr quay vòng về bằng rd_ptr khiến cờ fifo_empty bật sai lên 1 dù hàng đợi đang đầy (item_count == 8).",
+    "description": "When FIFO is filled with 8 elements, wr_ptr wraps around and equals rd_ptr, incorrectly asserting fifo_empty high even though the queue is full (item_count == 8).",
     "correct_fix": "    // Status flags\n    assign fifo_empty = (item_count == {(ADDR_WIDTH+1){1'b0}});\n",
     "alternative_fixes": [
       "assign fifo_empty = (item_count == 0);",
@@ -41,7 +41,7 @@
     "line_start": 55,
     "line_end": 55,
     "bug_type": "fsm_invalid_transition",
-    "description": "Sau khi kết thúc 2 chu kỳ ở S_MAIN_YELLOW, state_debug chuyển thẳng sang S_SIDE_YELLOW (3) thay vì S_SIDE_GREEN (2), bỏ qua hoàn toàn pha đèn xanh của đường phụ.",
+    "description": "After 2 cycles in S_MAIN_YELLOW, state_debug transitions directly to S_SIDE_YELLOW (3) instead of S_SIDE_GREEN (2), completely skipping the side road green phase.",
     "correct_fix": "                S_MAIN_YELLOW: begin\n                    if (timer_cnt == TICKS_YELLOW - 1'b1) begin\n                        current_state <= S_SIDE_GREEN;\n                        timer_cnt     <= 4'd0;\n                    end else begin\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -55,7 +55,7 @@
     "line_start": 63,
     "line_end": 63,
     "bug_type": "fsm_invalid_transition",
-    "description": "Khi car_present giữ bằng 1, FSM bị kẹt ở S_SIDE_GREEN (2) sau khi hết 6 chu kỳ mà không chuyển sang S_SIDE_YELLOW (3); đồng thời nếu car_present về 0 sớm trước chu kỳ thứ 6 thì FSM cũng không ngắt sớm.",
+    "description": "When car_present remains 1, FSM gets stuck in S_SIDE_GREEN (2) after 6 cycles without transitioning to S_SIDE_YELLOW (3); additionally, if car_present drops to 0 before cycle 6, FSM fails to terminate early.",
     "correct_fix": "                S_SIDE_GREEN: begin\n                    if (!car_present || (timer_cnt == TICKS_GREEN - 1'b1)) begin\n                        current_state <= S_SIDE_YELLOW;\n                        timer_cnt     <= 4'd0;\n                    end else begin\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -69,10 +69,10 @@
     "line_start": 45,
     "line_end": 49,
     "bug_type": "fsm_invalid_transition",
-    "description": "Khi car_present == 1, FSM lập tức chuyển từ S_MAIN_GREEN (0) sang S_MAIN_YELLOW (1) ngay ở cạnh clock đầu tiên thay vì đợi đủ 6 chu kỳ TICKS_GREEN.",
+    "description": "When car_present == 1, FSM immediately transitions from S_MAIN_GREEN (0) to S_MAIN_YELLOW (1) on the very first clock edge instead of waiting for the full 6 TICKS_GREEN cycles.",
     "correct_fix": "                S_MAIN_GREEN: begin\n                    if (timer_cnt < TICKS_GREEN - 1'b1) begin\n                        timer_cnt <= timer_cnt + 1'b1;\n                    end else if (car_present) begin\n                        current_state <= S_MAIN_YELLOW;\n                        timer_cnt     <= 4'd0;\n                    end\n                end\n",
     "alternative_fixes": [
-      "if (car_present && (timer_cnt == TICKS_GREEN - 1'b1)) ở nhánh đầu tiên."
+      "if (car_present && (timer_cnt == TICKS_GREEN - 1'b1)) in the first branch."
     ],
     "visible_fails": true,
     "heldout_fails": true
@@ -85,7 +85,7 @@
     "line_start": 23,
     "line_end": 23,
     "bug_type": "reset_polarity",
-    "description": "Sau khi nhả reset (reset_n = 1) và bật cnt_en = 1, val_out vẫn bị ghim cứng ở 0 tại mọi cạnh lên của xung nhịp clk.",
+    "description": "After releasing reset (reset_n = 1) and setting cnt_en = 1, val_out remains pinned at 0 at every rising edge of clock clk.",
     "correct_fix": "    always @(posedge clk or negedge reset_n) begin\n        if (!reset_n) begin\n            val_out <= {WIDTH_BITS{1'b0}};\n",
     "alternative_fixes": [
       "if (reset_n == 1'b0) begin"
@@ -101,7 +101,7 @@
     "line_start": 39,
     "line_end": 39,
     "bug_type": "reset_polarity",
-    "description": "Khi reset_n = 1, FSM bị ép giữ ở S_MAIN_GREEN (0) và timer_cnt = 0 ở mọi cạnh clock, dẫn tới sau 6 chu kỳ có car_present = 1 vẫn không chuyển sang S_MAIN_YELLOW (1).",
+    "description": "When reset_n = 1, FSM is forced into S_MAIN_GREEN (0) and timer_cnt = 0 at every clock edge, failing to transition to S_MAIN_YELLOW (1) even after 6 cycles with car_present = 1.",
     "correct_fix": "    always @(posedge clk or negedge reset_n) begin\n        if (!reset_n) begin\n            current_state <= S_MAIN_GREEN;\n            timer_cnt     <= 4'd0;\n",
     "alternative_fixes": [
       "if (reset_n == 1'b0) begin"
@@ -117,7 +117,7 @@
     "line_start": 46,
     "line_end": 46,
     "bug_type": "blocking_nonblocking",
-    "description": "Khi FIFO đang đầy (wr_ptr == rd_ptr) và thực hiện đọc/ghi đồng thời (push_req = 1, pop_req = 1), data_out đọc ra giá trị data_in vừa mới ghi vào (0xEE) thay vì phần tử cũ nhất đang nằm tại rd_ptr (0xB2).",
+    "description": "When FIFO is full (wr_ptr == rd_ptr) and simultaneous read/write occurs (push_req = 1, pop_req = 1), data_out reads newly written data_in (0xEE) instead of the oldest element at rd_ptr (0xB2).",
     "correct_fix": "            if (do_push) begin\n                mem[wr_ptr] <= data_in;\n                wr_ptr      <= wr_ptr + 1'b1;\n            end\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -131,7 +131,7 @@
     "line_start": 25,
     "line_end": 25,
     "bug_type": "bit_width_mismatch",
-    "description": "Phép cộng không tràn (0x15 + 0x23 = 0x38) vẫn đúng, nhưng khi cộng tràn 8-bit (0xFF + 0x01) thì flag_carry luôn bằng 0 thay vì 1.",
+    "description": "Non-overflow addition (0x15 + 0x23 = 0x38) works correctly, but 8-bit overflow addition (0xFF + 0x01) leaves flag_carry consistently 0 instead of 1.",
     "correct_fix": "            3'b000: begin // ADD\n                {flag_carry, alu_res} = src_a + src_b;\n            end\n",
     "alternative_fixes": [
       "{flag_carry, alu_res} = {1'b0, src_a} + {1'b0, src_b};"
@@ -147,7 +147,7 @@
     "line_start": 46,
     "line_end": 46,
     "bug_type": "bit_width_mismatch",
-    "description": "Khi nạp quá 4 phần tử vào FIFO, các phần tử thứ 5..8 bị ghi đè vòng lại vào mem[0..3], làm khi pop phần tử đầu tiên ra nhận giá trị 0x14 (20) thay vì 0x10 (16).",
+    "description": "When writing more than 4 elements into FIFO, elements 5..8 overwrite mem[0..3], causing first pop operation to return 0x14 (20) instead of 0x10 (16).",
     "correct_fix": "            if (do_push) begin\n                mem[wr_ptr] <= data_in;\n                wr_ptr      <= wr_ptr + 1'b1;\n            end\n",
     "alternative_fixes": [
       "mem[wr_ptr[ADDR_WIDTH-1:0]] <= data_in;"
@@ -163,7 +163,7 @@
     "line_start": 55,
     "line_end": 56,
     "bug_type": "missing_branch",
-    "description": "Khi chuyển từ S_MAIN_YELLOW sang S_SIDE_GREEN, timer_cnt không được xóa về 0 mà giữ nguyên giá trị 1, làm pha xanh phụ S_SIDE_GREEN ngắn hơn 1 chu kỳ (chỉ kéo dài 5 chu kỳ thay vì 6 chu kỳ khi car_present vẫn là 1).",
+    "description": "When transitioning from S_MAIN_YELLOW to S_SIDE_GREEN, timer_cnt is not cleared to 0 but retains 1, shortening the side green phase by 1 cycle (lasts only 5 cycles instead of 6 when car_present = 1).",
     "correct_fix": "                S_MAIN_YELLOW: begin\n                    if (timer_cnt == TICKS_YELLOW - 1'b1) begin\n                        current_state <= S_SIDE_GREEN;\n                        timer_cnt     <= 4'd0;\n                    end else begin\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -177,7 +177,7 @@
     "line_start": 19,
     "line_end": 19,
     "bug_type": "bit_width_mismatch",
-    "description": "Khi kết quả phép tính khác 0 nhưng có 4 bit thấp bằng 0 (ví dụ 0x50 - 0x20 = 0x30), cờ flag_zero bật sai lên 1.",
+    "description": "When operation result is non-zero but has lower 4 bits equal to 0 (e.g. 0x50 - 0x20 = 0x30), flag_zero erroneously asserts to 1.",
     "correct_fix": "    // Combinational zero flag\n    assign flag_zero = (alu_res == {DATA_WIDTH{1'b0}});\n",
     "alternative_fixes": [
       "assign flag_zero = ~(|alu_res);"
@@ -193,10 +193,10 @@
     "line_start": 42,
     "line_end": 43,
     "bug_type": "missing_branch",
-    "description": "Khi đưa mã lệnh không hợp lệ (op_code = 3'b101), alu_res không về 0 mà giữ nguyên (latch) giá trị 0x5A (90) của phép XOR trước đó.",
+    "description": "When an invalid opcode is provided (op_code = 3'b101), alu_res does not reset to 0 but latches the previous value (0x5A) from the preceding XOR operation.",
     "correct_fix": "            3'b100: begin // XOR\n                alu_res    = src_a ^ src_b;\n                flag_carry = 1'b0;\n            end\n            default: begin // Safe fallback\n                alu_res    = {DATA_WIDTH{1'b0}};\n                flag_carry = 1'b0;\n            end\n        endcase\n",
     "alternative_fixes": [
-      "Khởi tạo mặc định alu_res = {DATA_WIDTH{1'b0}}; flag_carry = 1'b0; ở đầu khối always @(*) trước câu lệnh case."
+      "Default initialization alu_res = {DATA_WIDTH{1'b0}}; flag_carry = 1'b0; at the top of always @(*) block before the case statement."
     ],
     "visible_fails": true,
     "heldout_fails": true
@@ -209,7 +209,7 @@
     "line_start": 58,
     "line_end": 59,
     "bug_type": "missing_branch",
-    "description": "Khi thực hiện pop đơn lẻ (pop_req = 1, push_req = 0), dữ liệu data_out vẫn đọc ra đúng nhưng item_count không giảm về 0 mà giữ nguyên ở 1, kéo theo fifo_empty không bật lên 1.",
+    "description": "When performing a single pop (pop_req = 1, push_req = 0), data_out is read correctly but item_count does not decrement to 0, remaining at 1 and preventing fifo_empty from asserting.",
     "correct_fix": "            case ({do_push, do_pop})\n                2'b10: item_count <= item_count + 1'b1;\n                2'b01: item_count <= item_count - 1'b1;\n                default: item_count <= item_count;\n            endcase\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -223,7 +223,7 @@
     "line_start": 25,
     "line_end": 25,
     "bug_type": "missing_branch",
-    "description": "Khi tín hiệu cho phép đếm tắt (cnt_en = 0) và reset_n = 1, bộ đếm không giữ nguyên giá trị hiện tại mà vẫn tiếp tục đếm tăng ở mỗi cạnh lên của clock.",
+    "description": "When count enable is disabled (cnt_en = 0) and reset_n = 1, counter does not hold current value but continues incrementing on each clock rising edge.",
     "correct_fix": "        if (!reset_n) begin\n            val_out <= {WIDTH_BITS{1'b0}};\n        end else if (cnt_en) begin\n            if (val_out >= limit_val) begin\n",
     "alternative_fixes": [],
     "visible_fails": true,
@@ -237,7 +237,7 @@
     "line_start": 26,
     "line_end": 26,
     "bug_type": "off_by_one",
-    "description": "Khi đếm đến limit_val (4), cờ term_reached đã bật lên 1 nhưng ở cạnh clock kế tiếp val_out tăng lên 5 thay vì quay về 0 (chỉ quay về 0 ở chu kỳ sau đó).",
+    "description": "When counting reaches limit_val (4), term_reached flag asserts, but on next clock edge val_out increments to 5 instead of wrapping to 0 (wrapping only on the subsequent cycle).",
     "correct_fix": "            if (val_out >= limit_val) begin\n                val_out <= {WIDTH_BITS{1'b0}};\n            end else begin\n",
     "alternative_fixes": [
       "if (val_out == limit_val || val_out > limit_val) begin"
@@ -253,7 +253,7 @@
     "line_start": 54,
     "line_end": 54,
     "bug_type": "off_by_one",
-    "description": "Trạng thái S_MAIN_YELLOW kéo dài 3 chu kỳ (timer_cnt = 0, 1, 2) thay vì 2 chu kỳ, làm tại cạnh clock thứ 8 state_debug vẫn bằng 1 (S_MAIN_YELLOW) thay vì chuyển sang 2 (S_SIDE_GREEN).",
+    "description": "State S_MAIN_YELLOW persists for 3 cycles (timer_cnt = 0, 1, 2) instead of 2 cycles, leaving state_debug equal to 1 (S_MAIN_YELLOW) at clock edge 8 instead of transitioning to 2 (S_SIDE_GREEN).",
     "correct_fix": "                S_MAIN_YELLOW: begin\n                    if (timer_cnt == TICKS_YELLOW - 1'b1) begin\n                        current_state <= S_SIDE_GREEN;\n                        timer_cnt     <= 4'd0;\n",
     "alternative_fixes": [
       "if (timer_cnt >= TICKS_YELLOW - 1'b1) begin"
@@ -269,7 +269,7 @@
     "line_start": 29,
     "line_end": 29,
     "bug_type": "off_by_one",
-    "description": "Phép trừ hai số khác nhau (A > B và A < B) đều đúng, nhưng khi trừ hai số bằng nhau (0x4A - 0x4A) thì flag_carry bật sai lên 1 thay vì 0.",
+    "description": "Subtractions with distinct operands (A > B and A < B) are correct, but subtracting equal numbers (0x4A - 0x4A) erroneously sets flag_carry to 1 instead of 0.",
     "correct_fix": "            3'b001: begin // SUB (flag_carry is borrow)\n                alu_res    = src_a - src_b;\n                flag_carry = (src_a < src_b);\n            end\n",
     "alternative_fixes": [],
     "visible_fails": true,

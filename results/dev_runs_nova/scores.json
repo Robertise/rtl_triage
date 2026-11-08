@@ -322,7 +322,7 @@
     },
     "decision_rule": {
       "status": "INCOMPLETE",
-      "message": "Thực nghiệm chưa hoàn tất (cần đủ cả 3 repeats hoàn chỉnh để áp dụng Decision Rule).",
+      "message": "Experiment incomplete (all 3 complete repeats required to apply Decision Rule).",
       "deltas": {},
       "passed_all_repeats": false
     }

@@ -2,7 +2,7 @@
   "hard_stop_usd": 15.0,
   "input_price_per_million_usd": 1.0,
   "output_price_per_million_usd": 5.0,
-  "pricing_status_note": "Claude Haiku 4.5, model chính thức ($1.00/1M in, $5.00/1M out)",
+  "pricing_status_note": "Claude Haiku 4.5, official model ($1.00/1M in, $5.00/1M out)",
   "total_input_tokens": 4279270,
   "total_output_tokens": 179822,
   "total_cost_usd": 4.9101851,

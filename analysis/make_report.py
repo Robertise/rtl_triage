@@ -181,9 +181,9 @@ def generate_summary_md(
     decision_rule = summary_data.get("decision_rule", {})
 
     lines: list[str] = []
-    lines.append("# Báo Cáo Tổng Hợp Kết Quả Đánh Giá (Evaluation Summary)")
+    lines.append("# Evaluation Summary Report")
     lines.append("")
-    lines.append("## 1. Bảng Tổng Hợp Theo Mẫu Plan Phase 6 (Overall)")
+    lines.append("## 1. Overall Summary Table (Phase 6)")
     lines.append("")
     lines.append("| Metric | Baseline | Triage agent |")
     lines.append("| :--- | :--- | :--- |")
@@ -200,49 +200,49 @@ def generate_summary_md(
 
     b_loc = _fmt_rate(b_ov.get("acc_loc_count", 0), b_n, b_ov.get("acc_loc_rate", 0.0))
     a_loc = _fmt_rate(a_ov.get("acc_loc_count", 0), a_n, a_ov.get("acc_loc_rate", 0.0))
-    lines.append(f"| Định vị đúng file và dòng | {b_loc} | {a_loc} |")
+    lines.append(f"| Correct file and line localization | {b_loc} | {a_loc} |")
 
     b_cls = _fmt_rate(b_ov.get("acc_cls_count", 0), b_n, b_ov.get("acc_cls_rate", 0.0))
     a_cls = _fmt_rate(a_ov.get("acc_cls_count", 0), a_n, a_ov.get("acc_cls_rate", 0.0))
-    lines.append(f"| Phân loại đúng | {b_cls} | {a_cls} |")
+    lines.append(f"| Correct classification | {b_cls} | {a_cls} |")
 
     b_vis = _fmt_rate(b_ov.get("pass_vis_count", 0), b_n, b_ov.get("pass_vis_rate", 0.0))
     a_vis = _fmt_rate(a_ov.get("pass_vis_count", 0), a_n, a_ov.get("pass_vis_rate", 0.0))
-    lines.append(f"| Patch pass `tb/visible` | {b_vis} | {a_vis} |")
+    lines.append(f"| Patch passes `tb/visible` | {b_vis} | {a_vis} |")
 
     b_held = _fmt_rate(b_ov.get("pass_heldout_count", 0), b_n, b_ov.get("pass_heldout_rate", 0.0))
     a_held = _fmt_rate(a_ov.get("pass_heldout_count", 0), a_n, a_ov.get("pass_heldout_rate", 0.0))
-    lines.append(f"| Patch pass `tb/heldout` | {b_held} | {a_held} |")
+    lines.append(f"| Patch passes `tb/heldout` | {b_held} | {a_held} |")
 
     b_first = _fmt_rate(b_ov.get("pass_first_count", 0), b_n, b_ov.get("pass_first_rate", 0.0))
     a_first = _fmt_rate(a_ov.get("pass_first_count", 0), a_n, a_ov.get("pass_first_rate", 0.0))
-    lines.append(f"| Patch đầu tiên pass `tb/heldout` | {b_first} | {a_first} |")
+    lines.append(f"| First patch passes `tb/heldout` | {b_first} | {a_first} |")
 
     b_turns = f"{b_ov.get('mean_turns', 0.0):.1f}"
     a_turns = f"{a_ov.get('mean_turns', 0.0):.1f}"
-    lines.append(f"| Số lần gọi LLM trung bình | {b_turns} | {a_turns} |")
+    lines.append(f"| Average LLM calls | {b_turns} | {a_turns} |")
 
     b_cost = f"${b_ov.get('mean_cost_usd', 0.0):.4f}"
     a_cost = f"${a_ov.get('mean_cost_usd', 0.0):.4f}"
-    lines.append(f"| Chi phí mỗi bug (USD) | {b_cost} | {a_cost} |")
+    lines.append(f"| Cost per bug (USD) | {b_cost} | {a_cost} |")
 
     lines.append("")
-    lines.append("## 2. Bảng Chi Tiết Theo Từng Repeat và Tổng")
+    lines.append("## 2. Detailed Table by Repeat and Total")
     lines.append("")
     lines.append(
-        "| Metric | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Tổng | "
-        "Triage Agent R1 | Triage Agent R2 | Triage Agent R3 | Triage Agent Tổng |"
+        "| Metric | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Total | "
+        "Triage Agent R1 | Triage Agent R2 | Triage Agent R3 | Triage Agent Total |"
     )
     lines.append(
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
     )
 
     metrics_keys = [
-        ("Định vị đúng file và dòng", "acc_loc_count"),
-        ("Phân loại đúng", "acc_cls_count"),
-        ("Patch pass `tb/visible`", "pass_vis_count"),
-        ("Patch pass `tb/heldout`", "pass_heldout_count"),
-        ("Patch đầu tiên pass `tb/heldout`", "pass_first_count"),
+        ("Correct file and line localization", "acc_loc_count"),
+        ("Correct classification", "acc_cls_count"),
+        ("Patch passes `tb/visible`", "pass_vis_count"),
+        ("Patch passes `tb/heldout`", "pass_heldout_count"),
+        ("First patch passes `tb/heldout`", "pass_first_count"),
     ]
 
     for label, count_key in metrics_keys:
@@ -260,7 +260,7 @@ def generate_summary_md(
         lines.append("| " + " | ".join(row_vals) + " |")
 
     # Resource rows
-    row_turns = ["Số lần gọi LLM trung bình"]
+    row_turns = ["Average LLM calls"]
     for cfg in ("baseline", "agent"):
         for rep in (1, 2, 3):
             val = by_config.get(cfg, {}).get(f"repeat_{rep}", {}).get("mean_turns", 0.0)
@@ -268,7 +268,7 @@ def generate_summary_md(
         row_turns.append(f"{by_config.get(cfg, {}).get('overall', {}).get('mean_turns', 0.0):.1f}")
     lines.append("| " + " | ".join(row_turns) + " |")
 
-    row_costs = ["Chi phí mỗi bug (USD)"]
+    row_costs = ["Cost per bug (USD)"]
     for cfg in ("baseline", "agent"):
         for rep in (1, 2, 3):
             val = by_config.get(cfg, {}).get(f"repeat_{rep}", {}).get("mean_cost_usd", 0.0)
@@ -278,17 +278,17 @@ def generate_summary_md(
 
     # Section 3: Decision Rule
     lines.append("")
-    lines.append("## 3. Quy Tắc Kết Luận Thực Nghiệm (Decision Rule)")
+    lines.append("## 3. Decision Rule")
     lines.append("")
-    lines.append(f"- **Trạng thái:** `{decision_rule.get('status', 'UNKNOWN')}`")
-    lines.append(f"- **Thông điệp:** {decision_rule.get('message', '')}")
-    lines.append(f"- **Đạt tất cả repeat:** `{decision_rule.get('passed_all_repeats', False)}`")
+    lines.append(f"- **Status:** `{decision_rule.get('status', 'UNKNOWN')}`")
+    lines.append(f"- **Message:** {decision_rule.get('message', '')}")
+    lines.append(f"- **Passed all repeats:** `{decision_rule.get('passed_all_repeats', False)}`")
 
     deltas = decision_rule.get("deltas", {})
     lines.append("- **Deltas:**")
     if deltas:
         lines.append("")
-        lines.append("| Repeat | Agent Pass Held-out | Baseline Pass Held-out | Delta (Agent - Baseline) | Ngưỡng >= 3 Đạt? |")
+        lines.append("| Repeat | Agent Pass Held-out | Baseline Pass Held-out | Delta (Agent - Baseline) | Threshold >= 3 Met? |")
         lines.append("| :--- | :--- | :--- | :--- | :--- |")
         for rep in (1, 2, 3):
             d_rep = deltas.get(f"repeat_{rep}", {})
@@ -298,18 +298,18 @@ def generate_summary_md(
             t_met = d_rep.get("threshold_met", False)
             lines.append(f"| Repeat {rep} | {ag_p} | {bl_p} | {d_val:+d} | {t_met} |")
     else:
-        lines.append("  - Không có deltas (chưa đủ dữ liệu cả 3 repeats).")
+        lines.append("  - No deltas (insufficient data across all 3 repeats).")
 
     # Section 4: INFRA_ERROR runs
     lines.append("")
-    lines.append("## 4. Danh Sách Run Bị Loại Khỏi Mẫu Số (INFRA_ERROR)")
+    lines.append("## 4. Runs Excluded from Denominator (INFRA_ERROR)")
     lines.append("")
     infra_runs = [
         r for r in individual_runs
         if r.get("is_infra_error") or r.get("status") == "INFRA_ERROR"
     ]
     if infra_runs:
-        lines.append("| Run ID | Config | Bug ID | Repeat | Status | Stop Reason | Ghi chú |")
+        lines.append("| Run ID | Config | Bug ID | Repeat | Status | Stop Reason | Notes |")
         lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
         for r in sorted(infra_runs, key=lambda x: (x.get("config", ""), x.get("bug_id", ""), x.get("repeat", 0))):
             lines.append(
@@ -317,18 +317,18 @@ def generate_summary_md(
                 f"`{r.get('status')}` | `{r.get('stop_reason')}` | {r.get('notes', '')} |"
             )
     else:
-        lines.append("Không có lần chạy nào bị lỗi hạ tầng (0 runs bị loại khỏi N_valid).")
+        lines.append("No runs encountered infrastructure errors (0 runs excluded from N_valid).")
 
     # Section 5: FAILED and EXCEEDED_LIMIT runs
     lines.append("")
-    lines.append("## 5. Danh Sách Run FAILED và EXCEEDED_LIMIT")
+    lines.append("## 5. FAILED and EXCEEDED_LIMIT Runs")
     lines.append("")
     failed_runs = [
         r for r in individual_runs
         if r.get("status") in ("FAILED", "EXCEEDED_LIMIT")
     ]
     if failed_runs:
-        lines.append("| Run ID | Config | Bug ID | Repeat | Status | Stop Reason | Ghi chú |")
+        lines.append("| Run ID | Config | Bug ID | Repeat | Status | Stop Reason | Notes |")
         lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
         for r in sorted(failed_runs, key=lambda x: (x.get("config", ""), x.get("bug_id", ""), x.get("repeat", 0))):
             lines.append(
@@ -336,7 +336,7 @@ def generate_summary_md(
                 f"`{r.get('status')}` | `{r.get('stop_reason')}` | {r.get('notes', '')} |"
             )
     else:
-        lines.append("Không có lần chạy nào ở trạng thái FAILED hoặc EXCEEDED_LIMIT.")
+        lines.append("No runs in FAILED or EXCEEDED_LIMIT status.")
 
     lines.append("")
     output_path.write_text("\n".join(lines), encoding="utf-8")
@@ -350,20 +350,20 @@ def generate_breakdown_md(
     """
     Generates breakdown.md detailing pass_heldout across bug_types and modules.
     Explicitly includes mandatory notice:
-    'Mỗi loại chỉ có 1–4 bug, chỉ để minh họa, không kết luận theo loại'.
+    'Each category only has 1–4 bugs, for illustration only, no category-level conclusions'.
     """
     lines: list[str] = []
-    lines.append("# Phân Rã Kết Quả Đánh Giá (Pass Held-out Breakdown)")
+    lines.append("# Pass Held-out Breakdown")
     lines.append("")
-    lines.append("> **Lưu ý:** Mỗi loại chỉ có 1–4 bug, chỉ để minh họa, không kết luận theo loại.")
+    lines.append("> **Note:** Each category only has 1–4 bugs, for illustration only, no category-level conclusions.")
     lines.append("")
 
-    # 1. Phân rã theo Loại Lỗi (Bug Type)
-    lines.append("## 1. Phân Rã Theo Loại Lỗi (Bug Type)")
+    # 1. Breakdown by Bug Type
+    lines.append("## 1. Breakdown by Bug Type")
     lines.append("")
     lines.append(
-        "| Bug Type | Số bug | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Tổng | Baseline Min–Max | "
-        "Agent R1 | Agent R2 | Agent R3 | Agent Tổng | Agent Min–Max |"
+        "| Bug Type | Bug count | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Total | Baseline Min–Max | "
+        "Agent R1 | Agent R2 | Agent R3 | Agent Total | Agent Min–Max |"
     )
     lines.append(
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
@@ -403,13 +403,13 @@ def generate_breakdown_md(
 
         lines.append("| " + " | ".join(row) + " |")
 
-    # 2. Phân rã theo Module (Design Module)
+    # 2. Breakdown by Module (Design Module)
     lines.append("")
-    lines.append("## 2. Phân Rã Theo Module RTL (Design Module)")
+    lines.append("## 2. Breakdown by RTL Module (Design Module)")
     lines.append("")
     lines.append(
-        "| Module | Số bug | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Tổng | Baseline Min–Max | "
-        "Agent R1 | Agent R2 | Agent R3 | Agent Tổng | Agent Min–Max |"
+        "| Module | Bug count | Baseline R1 | Baseline R2 | Baseline R3 | Baseline Total | Baseline Min–Max | "
+        "Agent R1 | Agent R2 | Agent R3 | Agent Total | Agent Min–Max |"
     )
     lines.append(
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
@@ -617,7 +617,7 @@ def generate_failure_analysis_md(
     Generates failure_analysis.md TEMPLATE containing:
     1. Table of ALL runs where pass_heldout == 0 (with relative links to trace).
     2. Template frames for 2-3 detailed cases with blank sections:
-       Triệu chứng / Chỗ lập luận sai / Cách cải thiện.
+       Symptom / Faulty reasoning / Improvement plan.
     """
     failed_runs = [r for r in individual_runs if r.get("pass_heldout") == 0]
     sorted_failed = sorted(
@@ -626,17 +626,17 @@ def generate_failure_analysis_md(
     )
 
     lines: list[str] = []
-    lines.append("# Phân Tích Lỗi Thất Bại (Failure Analysis Template)")
+    lines.append("# Failure Analysis Template")
     lines.append("")
-    lines.append("> **Ghi chú:** Đây là file BIỂU MẪU (Template). Bảng tổng hợp liệt kê mọi lần chạy")
-    lines.append("> không vượt qua bài test held-out (`pass_heldout = 0`). Phần phân tích chuyên sâu")
-    lines.append("> bên dưới dành cho người dùng tự nghiên cứu và điền nhận định thủ công.")
+    lines.append("> **Note:** This is a TEMPLATE file. The summary table lists all runs")
+    lines.append("> that did not pass the held-out test (`pass_heldout = 0`). The in-depth analysis")
+    lines.append("> section below is intended for manual human inspection and notes.")
     lines.append("")
-    lines.append("## 1. Danh Sách Toàn Bộ Các Run Thất Bại (`pass_heldout = 0`)")
+    lines.append("## 1. Complete List of Failed Runs (`pass_heldout = 0`)")
     lines.append("")
 
     if sorted_failed:
-        lines.append("| Run ID | Cấu hình | Bug ID | Repeat | Trạng thái | Stop Reason | Trace File |")
+        lines.append("| Run ID | Config | Bug ID | Repeat | Status | Stop Reason | Trace File |")
         lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
         for r in sorted_failed:
             rid = str(r.get("run_id", ""))
@@ -655,12 +655,12 @@ def generate_failure_analysis_md(
                 f"`{r.get('status')}` | `{r.get('stop_reason')}` | {trace_cell} |"
             )
     else:
-        lines.append("Không có lần chạy nào thất bại (100% runs pass held-out).")
+        lines.append("No runs failed (100% runs passed held-out).")
 
     lines.append("")
-    lines.append("## 2. Khung Phân Tích Chi Tiết Các Case Điển Hình (Human Analysis)")
+    lines.append("## 2. Detailed Case Analysis Framework (Human Analysis)")
     lines.append("")
-    lines.append("<!-- Người dùng tự chọn ít nhất 2–3 case thất bại bên trên để điền phân tích -->")
+    lines.append("<!-- Users select at least 2–3 failed cases above to fill in analysis -->")
     lines.append("")
 
     # Pick up to 3 failed runs as exemplar headers, or generic if none
@@ -675,13 +675,13 @@ def generate_failure_analysis_md(
         lines.append(f"### Case {idx}: `{c.get('run_id')}` (Bug {c.get('bug_id')}, {c.get('config')})")
         lines.append(f"- **Run ID:** `{c.get('run_id')}`")
         lines.append(f"- **Bug ID:** `{c.get('bug_id')}`")
-        lines.append(f"- **Cấu hình:** `{c.get('config')}`")
-        lines.append("- **Triệu chứng:**")
-        lines.append("  <!-- Mô tả triệu chứng lỗi quan sát được từ simulation log hoặc tool call -->")
-        lines.append("- **Chỗ lập luận sai:**")
-        lines.append("  <!-- Phân tích nguyên nhân vì sao model đưa ra chẩn đoán hoặc bản vá sai -->")
-        lines.append("- **Cách cải thiện:**")
-        lines.append("  <!-- Đề xuất giải pháp cải thiện (prompt, công cụ, quy trình kiểm thử) -->")
+        lines.append(f"- **Config:** `{c.get('config')}`")
+        lines.append("- **Symptom:**")
+        lines.append("  <!-- Describe observed error symptoms from simulation logs or tool calls -->")
+        lines.append("- **Faulty reasoning:**")
+        lines.append("  <!-- Analyze why the model made an incorrect diagnosis or patch -->")
+        lines.append("- **Improvement plan:**")
+        lines.append("  <!-- Propose improvements (prompts, tools, testing process) -->")
         lines.append("")
 
     output_path.write_text("\n".join(lines), encoding="utf-8")

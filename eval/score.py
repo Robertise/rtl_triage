@@ -19,7 +19,7 @@ Key Rules:
 9. INFRA_ERROR runs are reported separately and excluded from N_valid.
 10. Decision Rule:
     Delta_k = Pass_heldout(Agent, k) - Pass_heldout(Baseline, k) >= 3 for all k in {1, 2, 3}.
-    If repeats are incomplete, reports 'thực nghiệm chưa hoàn tất' without evaluating rule.
+    If repeats are incomplete, reports 'experiment incomplete' without evaluating rule.
 """
 
 from dataclasses import asdict, dataclass
@@ -608,10 +608,10 @@ def aggregate_scores(
     decision_rule_result: dict[str, Any] = {
         "status": "INCOMPLETE",
         "message": (
-            f"Thực nghiệm chưa hoàn tất (thiếu {len(missing_runs)} run: "
+            f"Experiment incomplete (missing {len(missing_runs)} run(s): "
             f"{', '.join(missing_runs[:10])}{'...' if len(missing_runs) > 10 else ''})."
             if missing_runs
-            else "Thực nghiệm chưa hoàn tất (cần đủ cả 3 repeats hoàn chỉnh để áp dụng Decision Rule)."
+            else "Experiment incomplete (all 3 complete repeats required to apply Decision Rule)."
         ),
         "missing_runs": missing_runs,
         "deltas": {},
@@ -639,14 +639,14 @@ def aggregate_scores(
         if all_pass:
             decision_rule_result["status"] = "SUPERIOR"
             decision_rule_result["message"] = (
-                "Đạt ngưỡng vượt trội theo đăng ký trước: Triage Agent vượt trội hơn Baseline "
-                "(Delta >= 3 bug pass held-out ở cả 3 repeats)."
+                "Met preregistered superiority threshold: Triage Agent outperforms Baseline "
+                "(Delta >= 3 bugs pass held-out across all 3 repeats)."
             )
         else:
             decision_rule_result["status"] = "INSUFFICIENT_EVIDENCE"
             decision_rule_result["message"] = (
-                "Chưa đủ bằng chứng theo quy tắc đã đăng ký trước để khẳng định "
-                "Triage Agent vượt trội hơn Baseline trong điều kiện thử nghiệm."
+                "Insufficient evidence according to the preregistered rule to claim that "
+                "Triage Agent outperforms Baseline under the evaluated conditions."
             )
 
     summary["decision_rule"] = decision_rule_result

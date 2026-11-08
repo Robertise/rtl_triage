@@ -248,7 +248,7 @@ def test_budget_hard_stop_and_incomplete_decision_rule(tmp_path: Path) -> None:
     summary = aggregate_scores([])
     dr = summary["decision_rule"]
     assert dr["status"] == "INCOMPLETE"
-    assert "Thực nghiệm chưa hoàn tất" in dr["message"]
+    assert "Experiment incomplete" in dr["message"]
 
 
 # ---------------------------------------------------------------------------

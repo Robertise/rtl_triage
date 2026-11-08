@@ -3,7 +3,7 @@
 RTL Failure Triage Agent - Persistent Cost Ledger & Hard Stop Guard
 Tracks cumulative API token usage and USD cost across all dev and test runs.
 
-Official Pricing (Claude Haiku 4.5 on AWS Bedrock - model chính thức):
+Official Pricing (Claude Haiku 4.5 on AWS Bedrock - official model):
 - Input tokens:  $1.00 / 1,000,000 tokens
 - Output tokens: $5.00 / 1,000,000 tokens
 - Hard stop limit: $15.00 USD cumulative across dev + test.
@@ -25,7 +25,7 @@ from typing import Any
 INPUT_PRICE_PER_MILLION = 1.00
 OUTPUT_PRICE_PER_MILLION = 5.00
 DEFAULT_HARD_STOP_USD = 15.00
-PRICING_STATUS_NOTE = "Claude Haiku 4.5, model chính thức ($1.00/1M in, $5.00/1M out)"
+PRICING_STATUS_NOTE = "Claude Haiku 4.5, official model ($1.00/1M in, $5.00/1M out)"
 
 # Model pricing registry
 MODEL_PRICING: dict[str, dict[str, Any]] = {
@@ -37,7 +37,7 @@ MODEL_PRICING: dict[str, dict[str, Any]] = {
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
         "input_per_million": 1.00,
         "output_per_million": 5.00,
-        "note": "Claude Haiku 4.5, model chính thức",
+        "note": "Claude Haiku 4.5, official model",
     },
 }
 

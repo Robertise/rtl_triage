@@ -513,7 +513,7 @@ def test_make_report_e2e_with_synthetic_known_answers(tmp_path: Path) -> None:
         },
         "decision_rule": {
             "status": "INCOMPLETE",
-            "message": "Thực nghiệm chưa hoàn tất (thiếu repeats 2 và 3).",
+            "message": "Experiment incomplete (missing repeats 2 and 3).",
             "missing_runs": ["baseline/B005/r2", "agent/B005/r2"],
             "deltas": {},
             "passed_all_repeats": False,
@@ -557,13 +557,13 @@ def test_make_report_e2e_with_synthetic_known_answers(tmp_path: Path) -> None:
     assert "1/2 (50.0%)" in sum_text  # Baseline Acc_loc with N_valid = 2
     assert "synthetic_baseline_B005_r1" in sum_text  # In INFRA_ERROR list
     assert "synthetic_baseline_B012_r1" in sum_text  # In FAILED list
-    assert "Thực nghiệm chưa hoàn tất (thiếu repeats 2 và 3)." in sum_text  # Decision rule verbatim
+    assert "Experiment incomplete (missing repeats 2 and 3)." in sum_text  # Decision rule verbatim
 
     # 3. Check breakdown.md
     breakdown_md = outputs["breakdown_md"]
     assert breakdown_md.is_file()
     bd_text = breakdown_md.read_text(encoding="utf-8")
-    assert "Mỗi loại chỉ có 1–4 bug, chỉ để minh họa, không kết luận theo loại" in bd_text
+    assert "Each category only has 1–4 bugs, for illustration only, no category-level conclusions" in bd_text
     assert "`fsm_invalid_transition`" in bd_text
     assert "`bit_width_mismatch`" in bd_text
     assert "`missing_branch`" in bd_text
@@ -605,7 +605,7 @@ def test_make_report_e2e_with_synthetic_known_answers(tmp_path: Path) -> None:
     fa_file = outputs["failure_analysis_md"]
     assert fa_file.is_file()
     fa_text = fa_file.read_text(encoding="utf-8")
-    assert "Phân Tích Lỗi Thất Bại (Failure Analysis Template)" in fa_text
+    assert "Failure Analysis Template" in fa_text
     # Runs with pass_heldout == 0:
     # synthetic_agent_B005_r1, synthetic_agent_B015_r1, synthetic_baseline_B005_r1, synthetic_baseline_B012_r1
     assert "synthetic_agent_B005_r1" in fa_text
@@ -615,9 +615,9 @@ def test_make_report_e2e_with_synthetic_known_answers(tmp_path: Path) -> None:
     # Should have case headers
     assert "### Case 1:" in fa_text
     assert "### Case 2:" in fa_text
-    assert "- **Triệu chứng:**" in fa_text
-    assert "- **Chỗ lập luận sai:**" in fa_text
-    assert "- **Cách cải thiện:**" in fa_text
+    assert "- **Symptom:**" in fa_text
+    assert "- **Faulty reasoning:**" in fa_text
+    assert "- **Improvement plan:**" in fa_text
 
 
 # ---------------------------------------------------------------------------

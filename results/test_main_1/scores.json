@@ -2862,7 +2862,7 @@
     },
     "decision_rule": {
       "status": "INSUFFICIENT_EVIDENCE",
-      "message": "Chưa đủ bằng chứng theo quy tắc đã đăng ký trước để khẳng định Triage Agent vượt trội hơn Baseline trong điều kiện thử nghiệm.",
+      "message": "Insufficient evidence according to the preregistered rule to claim that Triage Agent outperforms Baseline under the evaluated conditions.",
       "missing_runs": [],
       "deltas": {
         "repeat_1": {
