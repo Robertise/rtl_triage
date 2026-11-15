@@ -14,7 +14,8 @@ test_results.xml
 # Evaluation results: raw traces, manifests and scores are committed as evidence.
 results/**/ws/
 results/**/*.md
-docs/
+docs/*
+!docs/visualizes/
 
 # Python cache & virtual environments
 __pycache__/
